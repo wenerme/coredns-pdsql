@@ -6,6 +6,7 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/mholt/caddy"
 	"github.com/wenerme/wps/pdns/model"
+	"log"
 )
 
 func init() {
@@ -38,13 +39,15 @@ func setup(c *caddy.Controller) error {
 		x := c.Val()
 		switch x {
 		case "debug":
-			for _, v := range c.RemainingArgs() {
+			args := c.RemainingArgs()
+			for _, v := range args {
 				switch v {
 				case "db":
 					backend.DB = backend.DB.Debug()
 				}
 			}
 			backend.Debug = true
+			log.Println(Name, "enable log", args)
 		case "auto-migrate":
 			// currently only use records table
 			if err := backend.AutoMigrate(); err != nil {
@@ -55,15 +58,17 @@ func setup(c *caddy.Controller) error {
 		}
 	}
 
+	if c.NextArg() {
+		return plugin.Error("pdsql", c.ArgErr())
+	}
+
 	dnsserver.
 		GetConfig(c).
-		AddPlugin(func(next plugin.Handler) plugin.Handler {
-			return backend
-		})
+		AddPlugin(func(next plugin.Handler) plugin.Handler { return backend })
 
 	return nil
 }
 
 func (self PowerDNSGenericSQLBackend) AutoMigrate() error {
-	return self.DB.AutoMigrate(&pdnsmodel.Record{}).Error
+	return self.DB.AutoMigrate(&pdnsmodel.Record{}, &pdnsmodel.Domain{}).Error
 }

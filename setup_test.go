@@ -46,4 +46,18 @@ unknown
 	if err := setup(c); err == nil {
 		t.Fatalf("Expected errors, but got: %v", err)
 	}
+
+	c = caddy.NewTestController("dns", `pdsql sqlite3 :memory: {
+debug
+} invalid`)
+	if err := setup(c); err == nil {
+		t.Fatalf("Expected errors, but got: %v", err)
+	}
+
+	c = caddy.NewTestController("dns", `pdsql sqlite3 :memory: {
+auto-migrate invalid
+}`)
+	if err := setup(c); err == nil {
+		t.Fatalf("Expected errors, but got: %v", err)
+	}
 }

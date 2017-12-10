@@ -79,5 +79,24 @@ wener.test.		3600	IN	A	192.168.1.1
 wener.test.		3600	IN	TXT	"TXT Here"
 ~~~
 
+### Wildcard
+
+~~~ bash
+# domain id 1
+sqlite3 ./test.db 'insert into domains(name,type)values("example.test","NATIVE")'
+sqlite3 ./test.db 'insert into records(domain_id,name,type,content,ttl,disabled)values(1,"*.example.test","A","192.168.1.1",3600,0)'
+~~~
+
+When queried for "first.example.test. A", CoreDNS will respond with:
+
+~~~ txt
+;; QUESTION SECTION:
+;first.example.test.		IN	A
+
+;; ANSWER SECTION:
+first.example.test.	3600	IN	A	192.168.1.1
+~~~
+
 ## TODO
-* [ ] support wildcard record
+* [x] support wildcard record
+

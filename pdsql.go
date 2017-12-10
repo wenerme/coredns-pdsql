@@ -13,12 +13,14 @@ import (
 	"strings"
 )
 
+const Name = "pdsql"
+
 type PowerDNSGenericSQLBackend struct {
 	*gorm.DB
 	Debug bool
 }
 
-func (self PowerDNSGenericSQLBackend) Name() string { return "pdsql" }
+func (self PowerDNSGenericSQLBackend) Name() string { return Name }
 func (self PowerDNSGenericSQLBackend) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
 
@@ -53,9 +55,15 @@ func (self PowerDNSGenericSQLBackend) ServeDNS(ctx context.Context, w dns.Respon
 			return dns.RcodeServerFailure, err
 		}
 	} else {
+		if len(records) == 0 {
+			records, err = self.SearchWildcard(state.QName(), state.QType())
+			if err != nil {
+				return dns.RcodeServerFailure, err
+			}
+		}
 		for _, v := range records {
 			typ := dns.StringToType[v.Type]
-			hrd := dns.RR_Header{Name: v.Name, Rrtype: typ, Class: state.QClass(), Ttl: v.Ttl}
+			hrd := dns.RR_Header{Name: state.QName(), Rrtype: typ, Class: state.QClass(), Ttl: v.Ttl}
 			if !strings.HasSuffix(hrd.Name, ".") {
 				hrd.Name += "."
 			}
@@ -97,6 +105,44 @@ func (self PowerDNSGenericSQLBackend) ServeDNS(ctx context.Context, w dns.Respon
 	return 0, nil
 }
 
+func (self PowerDNSGenericSQLBackend) SearchWildcard(qname string, qtype uint16) (redords []*pdnsmodel.Record, err error) {
+	// find domain, then find matched sub domain
+	name := qname
+	qnameNoDot := qname[:len(qname)-1]
+	typ := dns.TypeToString[qtype]
+	name = qnameNoDot
+NEXT_ZONE:
+	if i := strings.IndexRune(name, '.'); i > 0 {
+		name = name[i+1:]
+	} else {
+		return
+	}
+	var domain pdnsmodel.Domain
+
+	if err := self.Limit(1).Find(&domain, "name = ?", name).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			goto NEXT_ZONE
+		}
+		return nil, err
+	}
+
+	if err := self.Find(&redords, "domain_id = ? and ( ? = 'ANY' or type = ? ) and name like '%*%'", domain.ID, typ, typ).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	// filter
+	var matched []*pdnsmodel.Record
+	for _, v := range redords {
+		if WildcardMatch(qnameNoDot, v.Name) {
+			matched = append(matched, v)
+		}
+	}
+	redords = matched
+	return
+}
+
 func ParseSOA(rr *dns.SOA, line string) bool {
 	splites := strings.Split(line, " ")
 	if len(splites) < 7 {
@@ -128,6 +174,55 @@ func ParseSOA(rr *dns.SOA, line string) bool {
 		return false
 	} else {
 		rr.Minttl = uint32(i)
+	}
+	return true
+}
+
+// Dummy wildcard match
+func WildcardMatch(s1, s2 string) bool {
+	if s1 == "." || s2 == "." {
+		return true
+	}
+
+	l1 := dns.SplitDomainName(s1)
+	l2 := dns.SplitDomainName(s2)
+
+	if len(l1) != len(l2) {
+		return false
+	}
+
+	for i := range l1 {
+		if !equal(l1[i], l2[i]) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func equal(a, b string) bool {
+	if b == "*" || a == "*" {
+		return true
+	}
+	// might be lifted into API function.
+	la := len(a)
+	lb := len(b)
+	if la != lb {
+		return false
+	}
+
+	for i := la - 1; i >= 0; i-- {
+		ai := a[i]
+		bi := b[i]
+		if ai >= 'A' && ai <= 'Z' {
+			ai |= 'a' - 'A'
+		}
+		if bi >= 'A' && bi <= 'Z' {
+			bi |= 'a' - 'A'
+		}
+		if ai != bi {
+			return false
+		}
 	}
 	return true
 }

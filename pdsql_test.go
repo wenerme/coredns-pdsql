@@ -13,7 +13,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-func TestWhoami(t *testing.T) {
+func TestPowerDNSSQL(t *testing.T) {
 	db, err := gorm.Open("sqlite3", ":memory:")
 	if err != nil {
 		t.Fatal(err)
@@ -71,6 +71,27 @@ func TestWhoami(t *testing.T) {
 			if actual != expected {
 				t.Errorf("Test %d: Expected answer %s, but got %s", i, expected, actual)
 			}
+		}
+	}
+}
+
+func TestWildcardMatch(t *testing.T) {
+
+	tests := []struct {
+		pattern  string
+		name     string
+		expected bool
+	}{
+		{"*.example.org.", "example.org.", false},
+		{"a.example.org.", "a.example.org.", true},
+		{"*.example.org.", "a.example.org.", true},
+		{"*.example.org.", "abcd.example.org.", true},
+	}
+
+	for i, tc := range tests {
+		act := pdsql.WildcardMatch(tc.name, tc.pattern)
+		if tc.expected != act {
+			t.Errorf("Test %d: Expected  %v, but got %v", i, tc.expected, act)
 		}
 	}
 }
