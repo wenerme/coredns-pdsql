@@ -20,9 +20,9 @@ Use [jinzhu/gorm](https://github.com/jinzhu/gorm) to handle database, support ma
 
 ~~~ txt
 pdsql <dialect> <arg> {
-    // enable debug mode
+    # enable debug mode
     debug [db]
-    // create table for test
+    # create table for test
     auto-migrate
 }
 ~~~
