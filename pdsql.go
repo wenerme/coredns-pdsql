@@ -89,6 +89,14 @@ func (self PowerDNSGenericSQLBackend) ServeDNS(ctx context.Context, w dns.Respon
 			case *dns.NS:
 				rr.Hdr = hrd
 				rr.Ns = v.Content
+			case *dns.PTR:
+				rr.Hdr = hrd
+				// pdns don't need the dot but when we answer, we need it
+				if strings.HasSuffix(v.Content, ".") {
+					rr.Ptr = v.Content
+				} else {
+					rr.Ptr = v.Content + "."
+				}
 			default:
 				// drop unsupported
 			}
@@ -101,8 +109,7 @@ func (self PowerDNSGenericSQLBackend) ServeDNS(ctx context.Context, w dns.Respon
 		}
 	}
 
-	w.WriteMsg(a)
-	return 0, nil
+	return 0, w.WriteMsg(a)
 }
 
 func (self PowerDNSGenericSQLBackend) SearchWildcard(qname string, qtype uint16) (redords []*pdnsmodel.Record, err error) {
