@@ -3,14 +3,16 @@
 package pdsql
 
 import (
-	"github.com/coredns/coredns/request"
-	"github.com/jinzhu/gorm"
-	"github.com/miekg/dns"
-	"github.com/wenerme/wps/pdns/model"
-	"golang.org/x/net/context"
 	"net"
 	"strconv"
 	"strings"
+
+	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/request"
+	"github.com/jinzhu/gorm"
+	"github.com/miekg/dns"
+	pdnsmodel "github.com/wenerme/wps/pdns/model"
+	"golang.org/x/net/context"
 )
 
 const Name = "pdsql"
@@ -18,6 +20,7 @@ const Name = "pdsql"
 type PowerDNSGenericSQLBackend struct {
 	*gorm.DB
 	Debug bool
+	Next  plugin.Handler
 }
 
 func (self PowerDNSGenericSQLBackend) Name() string { return Name }
@@ -107,6 +110,9 @@ func (self PowerDNSGenericSQLBackend) ServeDNS(ctx context.Context, w dns.Respon
 				a.Answer = append(a.Answer, rr)
 			}
 		}
+	}
+	if len(a.Answer) == 0 {
+		return plugin.NextOrFailure(self.Name(), self.Next, ctx, w, r)
 	}
 
 	return 0, w.WriteMsg(a)

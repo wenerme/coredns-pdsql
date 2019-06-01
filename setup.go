@@ -1,12 +1,13 @@
 package pdsql
 
 import (
+	"log"
+
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/jinzhu/gorm"
 	"github.com/mholt/caddy"
-	"github.com/wenerme/wps/pdns/model"
-	"log"
+	pdnsmodel "github.com/wenerme/wps/pdns/model"
 )
 
 func init() {
@@ -64,7 +65,10 @@ func setup(c *caddy.Controller) error {
 
 	dnsserver.
 		GetConfig(c).
-		AddPlugin(func(next plugin.Handler) plugin.Handler { return backend })
+		AddPlugin(func(next plugin.Handler) plugin.Handler {
+			backend.Next = next
+			return backend
+		})
 
 	return nil
 }
