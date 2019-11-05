@@ -3,8 +3,8 @@ package pdsql
 import (
 	"testing"
 
+	"github.com/caddyserver/caddy"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
-	"github.com/mholt/caddy"
 )
 
 func TestSetupWhoami(t *testing.T) {

@@ -3,10 +3,10 @@ package pdsql
 import (
 	"log"
 
+	"github.com/caddyserver/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/jinzhu/gorm"
-	"github.com/mholt/caddy"
 	pdnsmodel "github.com/wenerme/wps/pdns/model"
 )
 
