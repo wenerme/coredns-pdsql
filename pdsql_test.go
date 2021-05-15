@@ -1,7 +1,8 @@
 package pdsql_test
 
 import (
-	"github.com/wenerme/wps/coredns/plugin/pdsql/pdnsmodel"
+	"github.com/wenerme/coredns-pdsql"
+	"github.com/wenerme/coredns-pdsql/pdnsmodel"
 	"testing"
 
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
@@ -9,7 +10,6 @@ import (
 
 	"github.com/jinzhu/gorm"
 	"github.com/miekg/dns"
-	"github.com/wenerme/wps/coredns/plugin/pdsql"
 	"golang.org/x/net/context"
 )
 
@@ -59,7 +59,7 @@ func TestPowerDNSSQL(t *testing.T) {
 		if err != tc.expectedErr {
 			t.Errorf("Test %d: Expected error %v, but got %v", i, tc.expectedErr, err)
 		}
-		if code != int(tc.expectedCode) {
+		if code != tc.expectedCode {
 			t.Errorf("Test %d: Expected status code %d, but got %d", i, tc.expectedCode, code)
 		}
 		if len(tc.expectedReply) != len(rec.Msg.Answer) {

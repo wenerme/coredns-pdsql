@@ -7,7 +7,7 @@ import (
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
 )
 
-func TestSetupWhoami(t *testing.T) {
+func TestSetupPdsql(t *testing.T) {
 	c := caddy.NewTestController("dns", `pdsql sqlite3 :memory:`)
 	if err := setup(c); err != nil {
 		t.Fatalf("Expected no errors, but got: %v", err)

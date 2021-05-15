@@ -1,9 +1,8 @@
-// Package whoami implements a plugin that returns details about the resolving
-// querying it.
+// Package pdsql implements a plugin that query powerdns database to resolve the coredns query
 package pdsql
 
 import (
-	"github.com/wenerme/wps/coredns/plugin/pdsql/pdnsmodel"
+	"github.com/wenerme/coredns-pdsql/pdnsmodel"
 	"net"
 	"strconv"
 	"strings"
@@ -23,8 +22,8 @@ type PowerDNSGenericSQLBackend struct {
 	Next  plugin.Handler
 }
 
-func (self PowerDNSGenericSQLBackend) Name() string { return Name }
-func (self PowerDNSGenericSQLBackend) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+func (pdb PowerDNSGenericSQLBackend) Name() string { return Name }
+func (pdb PowerDNSGenericSQLBackend) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
 
 	a := new(dns.Msg)
@@ -44,10 +43,10 @@ func (self PowerDNSGenericSQLBackend) ServeDNS(ctx context.Context, w dns.Respon
 		query.Type = ""
 	}
 
-	if err := self.Where(query).Find(&records).Error; err != nil {
+	if err := pdb.Where(query).Find(&records).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			query.Type = "SOA"
-			if self.Where(query).Find(&records).Error == nil {
+			if pdb.Where(query).Find(&records).Error == nil {
 				rr := new(dns.SOA)
 				rr.Hdr = dns.RR_Header{Name: state.QName(), Rrtype: dns.TypeSOA, Class: state.QClass()}
 				if ParseSOA(rr, records[0].Content) {
@@ -59,7 +58,7 @@ func (self PowerDNSGenericSQLBackend) ServeDNS(ctx context.Context, w dns.Respon
 		}
 	} else {
 		if len(records) == 0 {
-			records, err = self.SearchWildcard(state.QName(), state.QType())
+			records, err = pdb.SearchWildcard(state.QName(), state.QType())
 			if err != nil {
 				return dns.RcodeServerFailure, err
 			}
@@ -112,13 +111,13 @@ func (self PowerDNSGenericSQLBackend) ServeDNS(ctx context.Context, w dns.Respon
 		}
 	}
 	if len(a.Answer) == 0 {
-		return plugin.NextOrFailure(self.Name(), self.Next, ctx, w, r)
+		return plugin.NextOrFailure(pdb.Name(), pdb.Next, ctx, w, r)
 	}
 
 	return 0, w.WriteMsg(a)
 }
 
-func (self PowerDNSGenericSQLBackend) SearchWildcard(qname string, qtype uint16) (redords []*pdnsmodel.Record, err error) {
+func (pdb PowerDNSGenericSQLBackend) SearchWildcard(qname string, qtype uint16) (redords []*pdnsmodel.Record, err error) {
 	// find domain, then find matched sub domain
 	name := qname
 	qnameNoDot := qname[:len(qname)-1]
@@ -132,14 +131,14 @@ NEXT_ZONE:
 	}
 	var domain pdnsmodel.Domain
 
-	if err := self.Limit(1).Find(&domain, "name = ?", name).Error; err != nil {
+	if err := pdb.Limit(1).Find(&domain, "name = ?", name).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			goto NEXT_ZONE
 		}
 		return nil, err
 	}
 
-	if err := self.Find(&redords, "domain_id = ? and ( ? = 'ANY' or type = ? ) and name like '%*%'", domain.ID, typ, typ).Error; err != nil {
+	if err := pdb.Find(&redords, "domain_id = ? and ( ? = 'ANY' or type = ? ) and name like '%*%'", domain.ID, typ, typ).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
 		}

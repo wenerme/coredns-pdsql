@@ -1,7 +1,7 @@
 package pdsql
 
 import (
-	"github.com/wenerme/wps/coredns/plugin/pdsql/pdnsmodel"
+	"github.com/wenerme/coredns-pdsql/pdnsmodel"
 	"log"
 
 	"github.com/coredns/caddy"
@@ -73,6 +73,6 @@ func setup(c *caddy.Controller) error {
 	return nil
 }
 
-func (self PowerDNSGenericSQLBackend) AutoMigrate() error {
-	return self.DB.AutoMigrate(&pdnsmodel.Record{}, &pdnsmodel.Domain{}).Error
+func (pdb PowerDNSGenericSQLBackend) AutoMigrate() error {
+	return pdb.DB.AutoMigrate(&pdnsmodel.Record{}, &pdnsmodel.Domain{}).Error
 }
