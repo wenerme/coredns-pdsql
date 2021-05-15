@@ -15,7 +15,6 @@ home = "https://github.com/wenerme/wps/blob/master/coredns/plugin/pdsql/README.m
 
 Use [jinzhu/gorm](https://github.com/jinzhu/gorm) to handle database, support many database as gorm dose.
 
-
 ## Syntax
 
 ~~~ txt
@@ -28,6 +27,7 @@ pdsql <dialect> <arg> {
 ~~~
 
 ## Install Driver
+
 pdsql need db driver for dialect, to install a driver you need to add import in plugin.cfg, like
 
 ~~~ txt
@@ -98,5 +98,6 @@ first.example.test.	3600	IN	A	192.168.1.1
 ~~~
 
 ## TODO
+
 * [x] support wildcard record
 

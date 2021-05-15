@@ -1,6 +1,7 @@
 package pdsql_test
 
 import (
+	"github.com/wenerme/wps/coredns/plugin/pdsql/pdnsmodel"
 	"testing"
 
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
@@ -9,7 +10,6 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/miekg/dns"
 	"github.com/wenerme/wps/coredns/plugin/pdsql"
-	"github.com/wenerme/wps/pdns/model"
 	"golang.org/x/net/context"
 )
 

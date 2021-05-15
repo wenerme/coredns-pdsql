@@ -1,13 +1,13 @@
 package pdsql
 
 import (
+	"github.com/wenerme/wps/coredns/plugin/pdsql/pdnsmodel"
 	"log"
 
-	"github.com/caddyserver/caddy"
+	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/jinzhu/gorm"
-	pdnsmodel "github.com/wenerme/wps/pdns/model"
 )
 
 func init() {

@@ -3,7 +3,7 @@ package pdsql
 import (
 	"testing"
 
-	"github.com/caddyserver/caddy"
+	"github.com/coredns/caddy"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
 )
 

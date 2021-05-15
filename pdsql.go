@@ -3,6 +3,7 @@
 package pdsql
 
 import (
+	"github.com/wenerme/wps/coredns/plugin/pdsql/pdnsmodel"
 	"net"
 	"strconv"
 	"strings"
@@ -11,7 +12,6 @@ import (
 	"github.com/coredns/coredns/request"
 	"github.com/jinzhu/gorm"
 	"github.com/miekg/dns"
-	pdnsmodel "github.com/wenerme/wps/pdns/model"
 	"golang.org/x/net/context"
 )
 
