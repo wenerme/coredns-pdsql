@@ -17,7 +17,7 @@ type Record struct {
 	DomainId  sql.NullInt64
 	Name      string `gorm:"type:varchar(255)"`
 	Type      string `gorm:"type:varchar(10)"`
-	Content   string `gorm:"type:varchar(64000)"`
+	Content   string `gorm:"type:text"`
 	Ttl       uint32
 	Prio      int
 	ChangDate int
