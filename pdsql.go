@@ -9,7 +9,7 @@ import (
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/request"
-	"github.com/jinzhu/gorm"
+	"modernc.org/sqlite"
 	"github.com/miekg/dns"
 	"golang.org/x/net/context"
 )
