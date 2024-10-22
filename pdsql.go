@@ -2,10 +2,12 @@
 package pdsql
 
 import (
-	"github.com/wenerme/coredns-pdsql/pdnsmodel"
+	"fmt"
 	"net"
 	"strconv"
 	"strings"
+
+	"github.com/wenerme/coredns-pdsql/pdnsmodel"
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/request"
@@ -99,6 +101,47 @@ func (pdb PowerDNSGenericSQLBackend) ServeDNS(ctx context.Context, w dns.Respons
 				} else {
 					rr.Ptr = v.Content + "."
 				}
+			case *dns.CNAME:
+				rr.Hdr = hrd
+				rr.Target = v.Content
+
+			case *dns.MX:
+				rr.Hdr = hrd
+				parts := strings.Split(v.Content, " ")
+				if len(parts) == 2 {
+					preference, host := parts[0], parts[1]
+					if pref, err := strconv.Atoi(preference); err == nil {
+						rr.Preference = uint16(pref)
+					} else {
+						return dns.RcodeServerFailure, fmt.Errorf("invalid MX preference: %s", preference)
+					}
+					rr.Mx = host
+				} else {
+					return dns.RcodeServerFailure, fmt.Errorf("malformed MX record content: %s", v.Content)
+				}
+
+			case *dns.SRV:
+				rr.Hdr = hrd
+				parts := strings.Split(v.Content, " ")
+				if len(parts) != 4 {
+					return dns.RcodeServerFailure, fmt.Errorf("malformed SRV record content: %s - parts=%d", v.Content, len(parts))
+				}
+				if priority, err := strconv.Atoi(parts[0]); err == nil {
+					rr.Priority = uint16(priority)
+				} else {
+					return dns.RcodeServerFailure, fmt.Errorf("invalid SRV priority: %s", parts[0])
+				}
+				if weight, err := strconv.Atoi(parts[1]); err == nil {
+					rr.Weight = uint16(weight)
+				} else {
+					return dns.RcodeServerFailure, fmt.Errorf("invalid SRV weight: %s", parts[1])
+				}
+				if port, err := strconv.Atoi(parts[2]); err == nil {
+					rr.Port = uint16(port)
+				} else {
+					return dns.RcodeServerFailure, fmt.Errorf("invalid SRV port: %s", parts[2])
+				}
+				rr.Target = parts[3]
 			default:
 				// drop unsupported
 			}
