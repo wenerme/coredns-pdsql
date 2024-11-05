@@ -1,13 +1,16 @@
 package pdsql
 
 import (
+	"github.com/glebarez/sqlite"
 	"github.com/wenerme/coredns-pdsql/pdnsmodel"
 	"log"
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
-	"github.com/jinzhu/gorm"
+	"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
 func init() {
@@ -30,7 +33,27 @@ func setup(c *caddy.Controller) error {
 	}
 	arg := c.Val()
 
-	db, err := gorm.Open(dialect, arg)
+	var dialector gorm.Dialector
+	switch dialect {
+	case "sqlite":
+		fallthrough
+	case "sqlite3":
+		dialector = sqlite.Open(arg)
+	case "pg":
+		fallthrough
+	case "postgresql":
+		fallthrough
+	case "postgres":
+		dialector = postgres.New(postgres.Config{
+			DSN: arg,
+		})
+	case "mysql":
+		dialector = mysql.Open(arg)
+	default:
+		return plugin.Error("pdsql", c.Errf("unsupported dialect %v", dialect))
+	}
+
+	db, err := gorm.Open(dialector)
 	if err != nil {
 		return err
 	}
@@ -54,6 +77,9 @@ func setup(c *caddy.Controller) error {
 			if err := backend.AutoMigrate(); err != nil {
 				return err
 			}
+		case "driver": // todo
+		case "dialect": // todo
+		case "dsn": // todo
 		default:
 			return plugin.Error("pdsql", c.Errf("unexpected '%v' command", x))
 		}
@@ -74,5 +100,5 @@ func setup(c *caddy.Controller) error {
 }
 
 func (pdb PowerDNSGenericSQLBackend) AutoMigrate() error {
-	return pdb.DB.AutoMigrate(&pdnsmodel.Record{}, &pdnsmodel.Domain{}).Error
+	return pdb.DB.AutoMigrate(&pdnsmodel.Record{}, &pdnsmodel.Domain{})
 }

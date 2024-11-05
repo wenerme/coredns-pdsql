@@ -11,9 +11,9 @@ import (
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/request"
-	"github.com/jinzhu/gorm"
 	"github.com/miekg/dns"
 	"golang.org/x/net/context"
+	"gorm.io/gorm"
 )
 
 const Name = "pdsql"

@@ -11,9 +11,10 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
 
-	"github.com/jinzhu/gorm"
+	"github.com/glebarez/sqlite"
 	"github.com/miekg/dns"
 	"golang.org/x/net/context"
+	"gorm.io/gorm"
 )
 
 type PowerDNSSQLTestCase struct {
@@ -27,7 +28,7 @@ type PowerDNSSQLTestCase struct {
 }
 
 func TestPowerDNSSQL(t *testing.T) {
-	db, err := gorm.Open("sqlite3", ":memory:")
+	db, err := gorm.Open(sqlite.Open(":memory:"))
 	if err != nil {
 		t.Fatal(err)
 	}

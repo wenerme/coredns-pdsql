@@ -2,7 +2,7 @@
 title: "pdsql"
 description: "*pdsql* use powerdns generic sql as backend."
 weight: 10
-tags: [  "plugin" , "pdsql" ]
+tags: [ "plugin" , "pdsql" ]
 categories: [ "plugin", "external" ]
 date: "2017-12-09T10:26:00+08:00"
 repo: "https://github.com/wenerme/coredns-pdsql"
@@ -13,7 +13,7 @@ home: "https://github.com/wenerme/coredns-pdsql/blob/master/README.md"
 
 *pdsql* use PowerDNS [generic sql](https://github.com/PowerDNS/pdns/tree/master/pdns/backends/gsql) as backend.
 
-Use [jinzhu/gorm](https://github.com/jinzhu/gorm) to handle database, support many database as gorm dose.
+Use [gorm.io/gorm](https://gorm.io) to handle database, support many database as gorm dose.
 
 ## Syntax
 
@@ -28,14 +28,12 @@ pdsql <dialect> <arg> {
 
 ## Install Driver
 
-pdsql need db driver for dialect, to install a driver you need to add import in plugin.cfg, like
+pdsql need db driver for dialect, current gorm do not support auto install driver, the supported driver is bundled with
+this plugin.
 
-~~~ txt
-pdsql_mysql:github.com/jinzhu/gorm/dialects/mysql
-pdsql_sqlite:github.com/jinzhu/gorm/dialects/sqlite
-~~~
-
-pdsql_mysql and pdsql_sqlite are meaningless, choose to prevent duplicated.
+- sqlite,sqlite3
+- mysql
+- postgres
 
 ## Examples
 
