@@ -27,7 +27,6 @@ type PowerDNSGenericSQLBackend struct {
 func (pdb PowerDNSGenericSQLBackend) Name() string { return Name }
 func (pdb PowerDNSGenericSQLBackend) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
-
 	a := new(dns.Msg)
 	a.SetReply(r)
 	a.Compress = true
@@ -60,14 +59,22 @@ func (pdb PowerDNSGenericSQLBackend) ServeDNS(ctx context.Context, w dns.Respons
 		}
 	} else {
 		if len(records) == 0 {
+			records, err = pdb.ResolveCNAMEs(state.QName())
+			if err != nil {
+				return dns.RcodeServerFailure, err
+			}
+		}
+
+		if len(records) == 0 {
 			records, err = pdb.SearchWildcard(state.QName(), state.QType())
 			if err != nil {
 				return dns.RcodeServerFailure, err
 			}
 		}
+
 		for _, v := range records {
 			typ := dns.StringToType[v.Type]
-			hrd := dns.RR_Header{Name: state.QName(), Rrtype: typ, Class: state.QClass(), Ttl: v.Ttl}
+			hrd := dns.RR_Header{Name: v.Name, Rrtype: typ, Class: state.QClass(), Ttl: v.Ttl}
 			if !strings.HasSuffix(hrd.Name, ".") {
 				hrd.Name += "."
 			}
@@ -160,6 +167,49 @@ func (pdb PowerDNSGenericSQLBackend) ServeDNS(ctx context.Context, w dns.Respons
 	return 0, w.WriteMsg(a)
 }
 
+func (pdb *PowerDNSGenericSQLBackend) ResolveCNAMEs(cname string) ([]*pdnsmodel.Record, error) {
+	resolveTypes := []string{"CNAME", "A", "AAA"}
+	resolveCNAME := true
+
+	var cnameRecords []*pdnsmodel.Record
+	var err error
+
+	if strings.HasSuffix(cname, ".") {
+		// remove last dot
+		cname = strings.TrimSuffix(cname, ".")
+	}
+
+	for resolveCNAME {
+		var cnameRecord = pdnsmodel.Record{Name: cname}
+
+		if err := pdb.Where(&cnameRecord).Where(map[string]interface{}{"type": &resolveTypes}).Find(&cnameRecord).Error; err != nil {
+			return nil, err
+		}
+
+		if cnameRecord.ID != 0 && cnameRecord.Content != "" {
+			// Save successful records
+			cnameRecords = append(cnameRecords, &cnameRecord)
+
+			// Resolve resursively
+			if cnameRecord.Type == "CNAME" {
+				// Update Search
+				cname = cnameRecord.Content
+
+				if strings.HasSuffix(cname, ".") {
+					// remove last dot
+					cname = strings.TrimSuffix(cname, ".")
+				}
+			} else {
+				resolveCNAME = false
+			}
+		} else {
+			resolveCNAME = false
+		}
+	}
+
+	return cnameRecords, err
+}
+
 func (pdb PowerDNSGenericSQLBackend) SearchWildcard(qname string, qtype uint16) (redords []*pdnsmodel.Record, err error) {
 	// find domain, then find matched sub domain
 	name := qname
@@ -187,6 +237,9 @@ NEXT_ZONE:
 		}
 		return nil, err
 	}
+
+	fmt.Printf("Domain WCard Recs: %#v\n", redords)
+
 	// filter
 	var matched []*pdnsmodel.Record
 	for _, v := range redords {

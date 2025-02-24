@@ -18,9 +18,11 @@ import (
 )
 
 type PowerDNSSQLTestCase struct {
+	testName       string
 	qname          string
 	qtype          uint16
 	expectedCode   int
+	expectedType   []uint16
 	expectedHeader []string // ownernames for the records in the answer section.
 	expectedReply  []string // reply contents for the records in the answer section.
 	expectedErr    error
@@ -40,7 +42,8 @@ func TestPowerDNSSQL(t *testing.T) {
 
 	testRecords := []*pdnsmodel.Record{
 		{Name: "example.org", Type: "A", Content: "192.168.1.1", Ttl: 3600},
-		{Name: "cname.example.org", Type: "CNAME", Content: "example.org.", Ttl: 3600},
+		{Name: "cname1.example.org", Type: "CNAME", Content: "cname2.example.org.", Ttl: 3600},
+		{Name: "cname2.example.org", Type: "CNAME", Content: "example.org.", Ttl: 3600},
 		{Name: "example.org", Type: "TXT", Content: "Example Response Text", Ttl: 3600},
 		{Name: "multi.example.org", Type: "A", Content: "192.168.1.2", Ttl: 7200},
 		{Name: "multi.example.org", Type: "A", Content: "192.168.1.3", Ttl: 7200},
@@ -57,36 +60,56 @@ func TestPowerDNSSQL(t *testing.T) {
 
 	tests := []PowerDNSSQLTestCase{
 		{
+			testName:       "Type A Request",
 			qname:          "example.org.",
 			qtype:          dns.TypeA,
 			expectedCode:   dns.RcodeSuccess,
+			expectedType:   []uint16{dns.TypeA},
 			expectedHeader: []string{"example.org."},
 			expectedReply:  []string{"192.168.1.1"},
 			expectedErr:    nil,
 			rrReply:        []dns.RR{&dns.A{A: net.ParseIP("192.168.1.1")}},
 		},
 		{
-			qname:          "cname.example.org.",
+			testName:       "Type CNAME Request",
+			qname:          "cname1.example.org.",
 			qtype:          dns.TypeCNAME,
 			expectedCode:   dns.RcodeSuccess,
-			expectedHeader: []string{"cname.example.org."},
-			expectedReply:  []string{"example.org."},
+			expectedType:   []uint16{dns.TypeCNAME},
+			expectedHeader: []string{"cname1.example.org."},
+			expectedReply:  []string{"cname2.example.org."},
 			expectedErr:    nil,
-			rrReply:        []dns.RR{&dns.CNAME{Target: "example.org."}},
+			rrReply:        []dns.RR{&dns.CNAME{Target: "cname2.example.org."}},
 		},
 		{
+			testName:       "CNAME resolves to A Record",
+			qname:          "cname1.example.org.",
+			qtype:          dns.TypeA,
+			expectedCode:   dns.RcodeSuccess,
+			expectedType:   []uint16{dns.TypeCNAME, dns.TypeCNAME, dns.TypeA},
+			expectedHeader: []string{"cname1.example.org."},
+			expectedReply:  []string{"cname2.example.org.", "cname1.example.org.", "192.168.1.1"},
+			expectedErr:    nil,
+			rrReply: []dns.RR{&dns.CNAME{Target: "cname2.example.org."},
+				&dns.CNAME{Target: "example.org."}, &dns.A{A: net.ParseIP("192.168.1.1")}},
+		},
+		{
+			testName:       "Type TXT Request",
 			qname:          "example.org.",
 			qtype:          dns.TypeTXT,
 			expectedCode:   dns.RcodeSuccess,
+			expectedType:   []uint16{dns.TypeTXT},
 			expectedHeader: []string{"example.org."},
 			expectedReply:  []string{"Example Response Text"},
 			expectedErr:    nil,
 			rrReply:        []dns.RR{&dns.TXT{Txt: []string{"Example Response Text"}}},
 		},
 		{
+			testName:       "Type A Multi Request",
 			qname:          "multi.example.org.",
 			qtype:          dns.TypeA,
 			expectedCode:   dns.RcodeSuccess,
+			expectedType:   []uint16{dns.TypeA, dns.TypeA},
 			expectedHeader: []string{"multi.example.org.", "multi.example.org."},
 			expectedReply:  []string{"192.168.1.2", "192.168.1.3"},
 			expectedErr:    nil,
@@ -94,18 +117,23 @@ func TestPowerDNSSQL(t *testing.T) {
 				&dns.A{A: net.ParseIP("192.168.1.3")}},
 		},
 		{
+			testName:       "Type MX Request",
 			qname:          "example.org",
 			qtype:          dns.TypeMX,
 			expectedCode:   dns.RcodeSuccess,
+			expectedType:   []uint16{dns.TypeMX, dns.TypeMX},
 			expectedHeader: []string{"example.org.", "example.org."},
 			expectedReply:  []string{"10 mail.example.org.", "20 mail2.example.org."},
 			expectedErr:    nil,
-			rrReply:        []dns.RR{&dns.MX{Mx: "mail.example.org.", Preference: 10}, &dns.MX{Mx: "mail2.example.org.", Preference: 20}},
+			rrReply: []dns.RR{&dns.MX{Mx: "mail.example.org.", Preference: 10},
+				&dns.MX{Mx: "mail2.example.org.", Preference: 20}},
 		},
 		{
+			testName:       "Type SRV Request",
 			qname:          "_xmpp._tcp.example.org.",
 			qtype:          dns.TypeSRV,
 			expectedCode:   dns.RcodeSuccess,
+			expectedType:   []uint16{dns.TypeSRV},
 			expectedErr:    nil,
 			expectedHeader: []string{"_xmpp._tcp.example.org."},
 			expectedReply:  []string{"10 10 5269 example.org."},
@@ -115,7 +143,7 @@ func TestPowerDNSSQL(t *testing.T) {
 
 	ctx := context.TODO()
 
-	for i, tc := range tests {
+	for _, tc := range tests {
 		req := new(dns.Msg)
 		req.SetQuestion(dns.Fqdn(tc.qname), tc.qtype)
 
@@ -123,30 +151,30 @@ func TestPowerDNSSQL(t *testing.T) {
 		code, err := p.ServeDNS(ctx, observed, req)
 
 		if err != tc.expectedErr {
-			t.Errorf("Test %d: Expected error %v, but got %v", i, tc.expectedErr, err)
+			t.Errorf("Test '%s': Expected error %v, but got %v", tc.testName, tc.expectedErr, err)
 		}
 		if code != tc.expectedCode {
-			t.Errorf("Test %d: Expected status code %d, but got %d", i, tc.expectedCode, code)
+			t.Errorf("Test '%s': Expected status code %d, but got %d", tc.testName, tc.expectedCode, code)
 		}
 
 		if observed.Msg.Answer == nil {
-			t.Errorf("Test %d: Expected answer section, but got nil", i)
+			t.Errorf("Test '%s': Expected answer section, but got nil", tc.testName)
 		}
 
 		if len(tc.expectedReply) != len(observed.Msg.Answer) {
-			t.Errorf("Test %d: Expected status len %d, but got %d", i, len(tc.expectedReply), len(observed.Msg.Answer))
+			t.Errorf("Test '%s': Expected status len %d, but got %d", tc.testName, len(tc.expectedReply), len(observed.Msg.Answer))
 		}
 
-		for _, answer := range observed.Msg.Answer {
-			if answer.Header().Rrtype != tc.qtype {
-				t.Errorf("Test %d: Expected type %d, but got %d", i, tc.qtype, answer.Header().Rrtype)
+		for i, answer := range observed.Msg.Answer {
+			if answer.Header().Rrtype != tc.expectedType[i] {
+				t.Errorf("Test '%s' - Header [%d]: Expected type %d, but got %d", tc.testName, i, tc.expectedType[i], answer.Header().Rrtype)
 			}
 		}
 
 		for i, expected := range tc.expectedHeader {
 			actual := observed.Msg.Answer[i].Header().Name
 			if actual != expected {
-				t.Errorf("Test %d: Expected answer %s, but got %s", i, expected, actual)
+				t.Errorf("Test '%s' - Answer [%d]: Expected answer %s, but got %s", tc.testName, i, expected, actual)
 			}
 
 		}
@@ -158,7 +186,7 @@ func TestPowerDNSSQL(t *testing.T) {
 				observedRR := observed.Msg.Answer[i].(*dns.A)
 
 				if !expectedRR.A.Equal(observedRR.A) {
-					t.Errorf("Test %d: Expected A reply %s, but got %s", i, expectedRR.A, observedRR.A)
+					t.Errorf("Test '%s' - Answer [%d]: Expected A reply %s, but got %s", tc.testName, i, expectedRR.A, observedRR.A)
 				}
 
 			case *dns.CNAME:
@@ -166,7 +194,7 @@ func TestPowerDNSSQL(t *testing.T) {
 				observedRR := observed.Msg.Answer[i].(*dns.CNAME)
 
 				if expectedRR.Target != observedRR.Target {
-					t.Errorf("Test %d: Expected CNAME reply %s, but got %s", i, expectedRR.Target, observedRR.Target)
+					t.Errorf("Test '%s' - Answer [%d]: Expected CNAME reply %s, but got %s", tc.testName, i, expectedRR.Target, observedRR.Target)
 				}
 
 			case *dns.TXT:
@@ -174,11 +202,11 @@ func TestPowerDNSSQL(t *testing.T) {
 				observedRR := observed.Msg.Answer[i].(*dns.TXT)
 
 				if len(expectedRR.Txt) != len(observedRR.Txt) {
-					t.Errorf("Test %d: Expected TXT reply of length %d, but got length %d", i, len(expectedRR.Txt), len(observedRR.Txt))
+					t.Errorf("Test '%s' - Answer [%d]: Expected TXT reply of length %d, but got length %d", tc.testName, i, len(expectedRR.Txt), len(observedRR.Txt))
 				}
 				for ctr := range expectedRR.Txt {
 					if expectedRR.Txt[ctr] != observedRR.Txt[ctr] {
-						t.Errorf("Test %d: Expected TXT reply ctr=%d to be %s, but got %s", i, ctr, expectedRR.Txt[ctr], observedRR.Txt[ctr])
+						t.Errorf("Test '%s' - Answer [%d]: Expected TXT reply ctr=%d to be %s, but got %s", tc.testName, i, ctr, expectedRR.Txt[ctr], observedRR.Txt[ctr])
 					}
 				}
 
@@ -187,7 +215,7 @@ func TestPowerDNSSQL(t *testing.T) {
 				observedRR := observed.Msg.Answer[i].(*dns.MX)
 
 				if expectedRR.Mx != observedRR.Mx {
-					t.Errorf("Test %d: Expected MX reply %s, but got %s", i, expectedRR.Mx, observedRR.Mx)
+					t.Errorf("Test '%s' - Answer [%d]: Expected MX reply %s, but got %s", tc.testName, i, expectedRR.Mx, observedRR.Mx)
 					fmt.Printf("expected MX: %v\n", expectedRR.Mx)
 				}
 
@@ -201,9 +229,9 @@ func TestPowerDNSSQL(t *testing.T) {
 					(expectedRR.Weight != observedRR.Weight) {
 
 					t.Errorf(
-						"Test %d: Expected SRV reply target=%s, priority=%d, weight=%d, port=%d, "+
+						"Test '%s' - Answer [%d]: Expected SRV reply target=%s, priority=%d, weight=%d, port=%d, "+
 							"but got target=%s, priority=%d, weight=%d, port=%d",
-						i, expectedRR.Target, expectedRR.Priority, expectedRR.Weight, expectedRR.Port,
+						tc.testName, i, expectedRR.Target, expectedRR.Priority, expectedRR.Weight, expectedRR.Port,
 						observedRR.Target, observedRR.Priority, observedRR.Weight, observedRR.Port,
 					)
 				}
