@@ -238,8 +238,6 @@ NEXT_ZONE:
 		return nil, err
 	}
 
-	fmt.Printf("Domain WCard Recs: %#v\n", redords)
-
 	// filter
 	var matched []*pdnsmodel.Record
 	for _, v := range redords {
