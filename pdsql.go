@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/wenerme/coredns-pdsql/pdnsmodel"
+	"pdsql/pdnsmodel"
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/request"
@@ -32,11 +32,15 @@ func (pdb PowerDNSGenericSQLBackend) ServeDNS(ctx context.Context, w dns.Respons
 	a.Compress = true
 	a.Authoritative = true
 
+	fmt.Printf("Request dmp: %#v\n", state)
+	fmt.Printf("Msg dmp: %#v\n", *state.Req)
+
 	var records []*pdnsmodel.Record
-	query := pdnsmodel.Record{Name: state.QName(), Type: state.Type(), Disabled: false}
-	if query.Name != "." {
+	query := pdnsmodel.Record{Name: strings.ToLower(state.QName()), Type: state.Type(), Disabled: false}
+
+	if strings.HasSuffix(query.Name, ".") {
 		// remove last dot
-		query.Name = query.Name[:len(query.Name)-1]
+		query.Name = strings.TrimSuffix(query.Name, ".")
 	}
 
 	switch state.QType() {
@@ -44,10 +48,10 @@ func (pdb PowerDNSGenericSQLBackend) ServeDNS(ctx context.Context, w dns.Respons
 		query.Type = ""
 	}
 
-	if err := pdb.Where(query).Find(&records).Error; err != nil {
+	if err := pdb.Where(&query).Find(&records).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			query.Type = "SOA"
-			if pdb.Where(query).Find(&records).Error == nil {
+			if pdb.Where(&query).Find(&records).Error == nil {
 				rr := new(dns.SOA)
 				rr.Hdr = dns.RR_Header{Name: state.QName(), Rrtype: dns.TypeSOA, Class: state.QClass()}
 				if ParseSOA(rr, records[0].Content) {
@@ -58,6 +62,8 @@ func (pdb PowerDNSGenericSQLBackend) ServeDNS(ctx context.Context, w dns.Respons
 			return dns.RcodeServerFailure, err
 		}
 	} else {
+		fmt.Printf("Records dmp: %#v\n", records)
+
 		if len(records) == 0 {
 			records, err = pdb.ResolveCNAMEs(state.QName())
 			if err != nil {
@@ -73,6 +79,8 @@ func (pdb PowerDNSGenericSQLBackend) ServeDNS(ctx context.Context, w dns.Respons
 		}
 
 		for _, v := range records {
+			fmt.Printf("Res dmp: %#v\n", v)
+
 			typ := dns.StringToType[v.Type]
 			hrd := dns.RR_Header{Name: v.Name, Rrtype: typ, Class: state.QClass(), Ttl: v.Ttl}
 			if !strings.HasSuffix(hrd.Name, ".") {
@@ -99,10 +107,14 @@ func (pdb PowerDNSGenericSQLBackend) ServeDNS(ctx context.Context, w dns.Respons
 				rr.Txt = []string{v.Content}
 			case *dns.NS:
 				rr.Hdr = hrd
-				rr.Ns = v.Content
+				if strings.HasSuffix(v.Content, ".") {
+					rr.Ns = v.Content
+				} else {
+					rr.Ns = v.Content + "."
+				}
 			case *dns.PTR:
 				rr.Hdr = hrd
-				// pdns don't need the dot but when we answer, we need it
+				// pdns doesn't need the dot but when we answer, we need it
 				if strings.HasSuffix(v.Content, ".") {
 					rr.Ptr = v.Content
 				} else {
@@ -110,21 +122,41 @@ func (pdb PowerDNSGenericSQLBackend) ServeDNS(ctx context.Context, w dns.Respons
 				}
 			case *dns.CNAME:
 				rr.Hdr = hrd
-				rr.Target = v.Content
+				if strings.HasSuffix(v.Content, ".") {
+					rr.Target = v.Content
+				} else {
+					rr.Target = v.Content + "."
+				}
 
 			case *dns.MX:
 				rr.Hdr = hrd
-				parts := strings.Split(v.Content, " ")
-				if len(parts) == 2 {
-					preference, host := parts[0], parts[1]
-					if pref, err := strconv.Atoi(preference); err == nil {
-						rr.Preference = uint16(pref)
+
+				// PowerDNS requires for MX Records the Priority to be set
+				if v.Prio != 0 {
+					rr.Preference = uint16(v.Prio)
+					if strings.HasSuffix(v.Content, ".") {
+						rr.Mx = v.Content
 					} else {
-						return dns.RcodeServerFailure, fmt.Errorf("invalid MX preference: %s", preference)
+						rr.Mx = v.Content + "."
 					}
-					rr.Mx = host
 				} else {
-					return dns.RcodeServerFailure, fmt.Errorf("malformed MX record content: %s", v.Content)
+					parts := strings.Split(v.Content, " ")
+
+					if len(parts) == 2 {
+						preference, host := parts[0], parts[1]
+						if pref, err := strconv.Atoi(preference); err == nil {
+							rr.Preference = uint16(pref)
+						} else {
+							return dns.RcodeServerFailure, fmt.Errorf("invalid MX preference: %s", preference)
+						}
+						if strings.HasSuffix(host, ".") {
+							rr.Mx = host
+						} else {
+							rr.Mx = host + "."
+						}
+					} else {
+						return dns.RcodeServerFailure, fmt.Errorf("malformed MX record content: %s", v.Content)
+					}
 				}
 
 			case *dns.SRV:
@@ -174,6 +206,8 @@ func (pdb *PowerDNSGenericSQLBackend) ResolveCNAMEs(cname string) ([]*pdnsmodel.
 	var cnameRecords []*pdnsmodel.Record
 	var err error
 
+	cname = strings.ToLower(cname)
+
 	if strings.HasSuffix(cname, ".") {
 		// remove last dot
 		cname = strings.TrimSuffix(cname, ".")
@@ -212,8 +246,8 @@ func (pdb *PowerDNSGenericSQLBackend) ResolveCNAMEs(cname string) ([]*pdnsmodel.
 
 func (pdb PowerDNSGenericSQLBackend) SearchWildcard(qname string, qtype uint16) (redords []*pdnsmodel.Record, err error) {
 	// find domain, then find matched sub domain
-	name := qname
-	qnameNoDot := qname[:len(qname)-1]
+	name := strings.ToLower(qname)
+	qnameNoDot := name[:len(name)-1]
 	typ := dns.TypeToString[qtype]
 	name = qnameNoDot
 NEXT_ZONE:
