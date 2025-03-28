@@ -2,7 +2,7 @@ package pdsql
 
 import (
 	"github.com/glebarez/sqlite"
-	"pdsql/pdnsmodel"
+	"github.com/wenerme/coredns-pdsql/pdnsmodel"
 	"log"
 
 	"github.com/coredns/caddy"
