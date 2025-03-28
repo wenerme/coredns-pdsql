@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"pdsql/pdnsmodel"
+	"github.com/wenerme/coredns-pdsql/pdnsmodel"
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/request"
@@ -32,13 +32,10 @@ func (pdb PowerDNSGenericSQLBackend) ServeDNS(ctx context.Context, w dns.Respons
 	a.Compress = true
 	a.Authoritative = true
 
-	fmt.Printf("Request dmp: %#v\n", state)
-	fmt.Printf("Msg dmp: %#v\n", *state.Req)
-
 	var records []*pdnsmodel.Record
 	query := pdnsmodel.Record{Name: strings.ToLower(state.QName()), Type: state.Type(), Disabled: false}
 
-	if strings.HasSuffix(query.Name, ".") {
+	if strings.HasSuffix(query.Name, ".") && query.Name != "." {
 		// remove last dot
 		query.Name = strings.TrimSuffix(query.Name, ".")
 	}
@@ -62,8 +59,6 @@ func (pdb PowerDNSGenericSQLBackend) ServeDNS(ctx context.Context, w dns.Respons
 			return dns.RcodeServerFailure, err
 		}
 	} else {
-		fmt.Printf("Records dmp: %#v\n", records)
-
 		if len(records) == 0 {
 			records, err = pdb.ResolveCNAMEs(state.QName())
 			if err != nil {
@@ -79,8 +74,6 @@ func (pdb PowerDNSGenericSQLBackend) ServeDNS(ctx context.Context, w dns.Respons
 		}
 
 		for _, v := range records {
-			fmt.Printf("Res dmp: %#v\n", v)
-
 			typ := dns.StringToType[v.Type]
 			hrd := dns.RR_Header{Name: v.Name, Rrtype: typ, Class: state.QClass(), Ttl: v.Ttl}
 			if !strings.HasSuffix(hrd.Name, ".") {
