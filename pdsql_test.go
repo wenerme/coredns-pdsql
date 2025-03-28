@@ -44,6 +44,7 @@ func TestPowerDNSSQL(t *testing.T) {
 		{Name: "example.org", Type: "A", Content: "192.168.1.1", Ttl: 3600},
 		{Name: "cname1.example.org", Type: "CNAME", Content: "cname2.example.org.", Ttl: 3600},
 		{Name: "cname2.example.org", Type: "CNAME", Content: "example.org.", Ttl: 3600},
+		{Name: "nocase.example.org", Type: "CNAME", Content: "example.org.", Ttl: 3600},
 		{Name: "example.org", Type: "TXT", Content: "Example Response Text", Ttl: 3600},
 		{Name: "multi.example.org", Type: "A", Content: "192.168.1.2", Ttl: 7200},
 		{Name: "multi.example.org", Type: "A", Content: "192.168.1.3", Ttl: 7200},
@@ -91,6 +92,18 @@ func TestPowerDNSSQL(t *testing.T) {
 			expectedReply:  []string{"cname2.example.org.", "cname1.example.org.", "192.168.1.1"},
 			expectedErr:    nil,
 			rrReply: []dns.RR{&dns.CNAME{Target: "cname2.example.org."},
+				&dns.CNAME{Target: "example.org."}, &dns.A{A: net.ParseIP("192.168.1.1")}},
+		},
+		{
+			testName:       "Case Insensitive Queries",
+			qname:          "NoCase.Example.ORG.",
+			qtype:          dns.TypeA,
+			expectedCode:   dns.RcodeSuccess,
+			expectedType:   []uint16{dns.TypeCNAME, dns.TypeA},
+			expectedHeader: []string{"nocase.example.org."},
+			expectedReply:  []string{"nocase.example.org.", "192.168.1.1"},
+			expectedErr:    nil,
+			rrReply: []dns.RR{
 				&dns.CNAME{Target: "example.org."}, &dns.A{A: net.ParseIP("192.168.1.1")}},
 		},
 		{
