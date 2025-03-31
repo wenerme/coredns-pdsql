@@ -15,7 +15,7 @@ type Domain struct {
 type Record struct {
 	ID        uint `gorm:"primary_key"`
 	DomainId  sql.NullInt64
-	Name      string `gorm:"type:varchar(255)"`
+	Name      string `gorm:"type:varchar(255);not null"`
 	Type      string `gorm:"type:varchar(10)"`
 	Content   string `gorm:"type:text"`
 	Ttl       uint32
