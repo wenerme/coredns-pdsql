@@ -44,8 +44,20 @@ test.:1053 {
     pdsql sqlite3 ./test.db {
         debug db
         auto-migrate
-    }
+    }   
 }
+
+coredns-pdsql.local {
+	pdsql postgres "host=db dbname=coredns user=coredns password=coredns.secret sslmode=disable" {
+		debug db
+        auto-migrate
+	}
+
+	whoami
+	log
+	errors
+}
+
 ~~~
 
 Prepare data for test.
@@ -94,8 +106,4 @@ When queried for "first.example.test. A", CoreDNS will respond with:
 ;; ANSWER SECTION:
 first.example.test.	3600	IN	A	192.168.1.1
 ~~~
-
-## TODO
-
-* [x] support wildcard record
 

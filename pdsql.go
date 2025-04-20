@@ -52,160 +52,124 @@ func (pdb PowerDNSGenericSQLBackend) ServeDNS(ctx context.Context, w dns.Respons
 			return dns.RcodeServerFailure, err
 		}
 	}
-
-/*	[]*pdnsmodel.Record
-	query := pdnsmodel.Record{Name: strings.ToLower(state.QName()), Type: state.Type(), Disabled: false}
-
-	if strings.HasSuffix(query.Name, ".") && query.Name != "." {
-		// remove last dot
-		query.Name = strings.TrimSuffix(query.Name, ".")
-	}
-
-	switch state.QType() {
-	case dns.TypeANY:
-		query.Type = ""
-	}
-
-	if err := pdb.Where(&query).Find(&records).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			query.Type = "SOA"
-			if pdb.Where(&query).Find(&records).Error == nil {
-				rr := new(dns.SOA)
-				rr.Hdr = dns.RR_Header{Name: state.QName(), Rrtype: dns.TypeSOA, Class: state.QClass()}
-				if ParseSOA(rr, records[0].Content) {
-					a.Extra = append(a.Extra, rr)
-				}
-			}
-		} else {
+	if len(records) == 0 {
+		records, err = pdb.SearchWildcard(state.QName(), state.QType())
+		if err != nil {
 			return dns.RcodeServerFailure, err
 		}
-	} else {
-		if len(records) == 0 {
-			records, err = pdb.ResolveCNAMEs(state.QName(), state.QType())
-			if err != nil {
-				return dns.RcodeServerFailure, err
-			}
+	}
+
+	for _, v := range records {
+		typ := dns.StringToType[v.Type]
+		hrd := dns.RR_Header{Name: v.Name, Rrtype: typ, Class: state.QClass(), Ttl: v.Ttl}
+		if !strings.HasSuffix(hrd.Name, ".") {
+			hrd.Name += "."
 		}
-		*/
-		if len(records) == 0 {
-			records, err = pdb.SearchWildcard(state.QName(), state.QType())
-			if err != nil {
-				return dns.RcodeServerFailure, err
+		rr := dns.TypeToRR[typ]()
+
+		// todo support more type
+		// this is enough for most query
+		switch rr := rr.(type) {
+		case *dns.SOA:
+			rr.Hdr = hrd
+			if !ParseSOA(rr, v.Content) {
+				rr = nil
 			}
-		}
-
-		for _, v := range records {
-			typ := dns.StringToType[v.Type]
-			hrd := dns.RR_Header{Name: v.Name, Rrtype: typ, Class: state.QClass(), Ttl: v.Ttl}
-			if !strings.HasSuffix(hrd.Name, ".") {
-				hrd.Name += "."
-			}
-			rr := dns.TypeToRR[typ]()
-
-			// todo support more type
-			// this is enough for most query
-			switch rr := rr.(type) {
-			case *dns.SOA:
-				rr.Hdr = hrd
-				if !ParseSOA(rr, v.Content) {
-					rr = nil
-				}
-			case *dns.A:
-				rr.Hdr = hrd
-				rr.A = net.ParseIP(v.Content)
-			case *dns.AAAA:
-				rr.Hdr = hrd
-				rr.AAAA = net.ParseIP(v.Content)
-			case *dns.TXT:
-				rr.Hdr = hrd
-				rr.Txt = []string{v.Content}
-			case *dns.NS:
-				rr.Hdr = hrd
-				if strings.HasSuffix(v.Content, ".") {
-					rr.Ns = v.Content
-				} else {
-					rr.Ns = v.Content + "."
-				}
-			case *dns.PTR:
-				rr.Hdr = hrd
-				// pdns doesn't need the dot but when we answer, we need it
-				if strings.HasSuffix(v.Content, ".") {
-					rr.Ptr = v.Content
-				} else {
-					rr.Ptr = v.Content + "."
-				}
-			case *dns.CNAME:
-				rr.Hdr = hrd
-				if strings.HasSuffix(v.Content, ".") {
-					rr.Target = v.Content
-				} else {
-					rr.Target = v.Content + "."
-				}
-
-			case *dns.MX:
-				rr.Hdr = hrd
-
-				// PowerDNS requires for MX Records the Priority to be set
-				if v.Prio != 0 {
-					rr.Preference = uint16(v.Prio)
-					if strings.HasSuffix(v.Content, ".") {
-						rr.Mx = v.Content
-					} else {
-						rr.Mx = v.Content + "."
-					}
-				} else {
-					parts := strings.Split(v.Content, " ")
-
-					if len(parts) == 2 {
-						preference, host := parts[0], parts[1]
-						if pref, err := strconv.Atoi(preference); err == nil {
-							rr.Preference = uint16(pref)
-						} else {
-							return dns.RcodeServerFailure, fmt.Errorf("invalid MX preference: %s", preference)
-						}
-						if strings.HasSuffix(host, ".") {
-							rr.Mx = host
-						} else {
-							rr.Mx = host + "."
-						}
-					} else {
-						return dns.RcodeServerFailure, fmt.Errorf("malformed MX record content: %s", v.Content)
-					}
-				}
-
-			case *dns.SRV:
-				rr.Hdr = hrd
-				parts := strings.Split(v.Content, " ")
-				if len(parts) != 4 {
-					return dns.RcodeServerFailure, fmt.Errorf("malformed SRV record content: %s - parts=%d", v.Content, len(parts))
-				}
-				if priority, err := strconv.Atoi(parts[0]); err == nil {
-					rr.Priority = uint16(priority)
-				} else {
-					return dns.RcodeServerFailure, fmt.Errorf("invalid SRV priority: %s", parts[0])
-				}
-				if weight, err := strconv.Atoi(parts[1]); err == nil {
-					rr.Weight = uint16(weight)
-				} else {
-					return dns.RcodeServerFailure, fmt.Errorf("invalid SRV weight: %s", parts[1])
-				}
-				if port, err := strconv.Atoi(parts[2]); err == nil {
-					rr.Port = uint16(port)
-				} else {
-					return dns.RcodeServerFailure, fmt.Errorf("invalid SRV port: %s", parts[2])
-				}
-				rr.Target = parts[3]
-			default:
-				// drop unsupported
-			}
-
-			if rr == nil {
-				// invalid record
+		case *dns.A:
+			rr.Hdr = hrd
+			rr.A = net.ParseIP(v.Content)
+		case *dns.AAAA:
+			rr.Hdr = hrd
+			rr.AAAA = net.ParseIP(v.Content)
+		case *dns.TXT:
+			rr.Hdr = hrd
+			rr.Txt = []string{v.Content}
+		case *dns.NS:
+			rr.Hdr = hrd
+			if strings.HasSuffix(v.Content, ".") {
+				rr.Ns = v.Content
 			} else {
-				a.Answer = append(a.Answer, rr)
+				rr.Ns = v.Content + "."
 			}
+		case *dns.PTR:
+			rr.Hdr = hrd
+			// pdns doesn't need the dot but when we answer, we need it
+			if strings.HasSuffix(v.Content, ".") {
+				rr.Ptr = v.Content
+			} else {
+				rr.Ptr = v.Content + "."
+			}
+		case *dns.CNAME:
+			rr.Hdr = hrd
+			if strings.HasSuffix(v.Content, ".") {
+				rr.Target = v.Content
+			} else {
+				rr.Target = v.Content + "."
+			}
+
+		case *dns.MX:
+			rr.Hdr = hrd
+
+			// PowerDNS requires for MX Records the Priority to be set
+			if v.Prio != 0 {
+				rr.Preference = uint16(v.Prio)
+				if strings.HasSuffix(v.Content, ".") {
+					rr.Mx = v.Content
+				} else {
+					rr.Mx = v.Content + "."
+				}
+			} else {
+				parts := strings.Split(v.Content, " ")
+
+				if len(parts) == 2 {
+					preference, host := parts[0], parts[1]
+					if pref, err := strconv.Atoi(preference); err == nil {
+						rr.Preference = uint16(pref)
+					} else {
+						return dns.RcodeServerFailure, fmt.Errorf("invalid MX preference: %s", preference)
+					}
+					if strings.HasSuffix(host, ".") {
+						rr.Mx = host
+					} else {
+						rr.Mx = host + "."
+					}
+				} else {
+					return dns.RcodeServerFailure, fmt.Errorf("malformed MX record content: %s", v.Content)
+				}
+			}
+
+		case *dns.SRV:
+			rr.Hdr = hrd
+			parts := strings.Split(v.Content, " ")
+			if len(parts) != 4 {
+				return dns.RcodeServerFailure, fmt.Errorf("malformed SRV record content: %s - parts=%d", v.Content, len(parts))
+			}
+			if priority, err := strconv.Atoi(parts[0]); err == nil {
+				rr.Priority = uint16(priority)
+			} else {
+				return dns.RcodeServerFailure, fmt.Errorf("invalid SRV priority: %s", parts[0])
+			}
+			if weight, err := strconv.Atoi(parts[1]); err == nil {
+				rr.Weight = uint16(weight)
+			} else {
+				return dns.RcodeServerFailure, fmt.Errorf("invalid SRV weight: %s", parts[1])
+			}
+			if port, err := strconv.Atoi(parts[2]); err == nil {
+				rr.Port = uint16(port)
+			} else {
+				return dns.RcodeServerFailure, fmt.Errorf("invalid SRV port: %s", parts[2])
+			}
+			rr.Target = parts[3]
+		default:
+			// drop unsupported
 		}
-	//}
+
+		if rr == nil {
+			// invalid record
+		} else {
+			a.Answer = append(a.Answer, rr)
+		}
+	}
 
 	if len(a.Answer) == 0 {
 		return plugin.NextOrFailure(pdb.Name(), pdb.Next, ctx, w, r)
@@ -244,8 +208,6 @@ func (pdb *PowerDNSGenericSQLBackend) ResolveRequest(qname string, qtype uint16)
 	if err := query.Find(&queryRecords).Error; err != nil {
 		return nil, err
 	}
-
-	fmt.Printf("pdsql - ResolveRequest(): qry recs: %#v'\n", queryRecords)
 
 	if len(queryRecords) != 0 {
 		for recIndex, queryRec := range queryRecords {
@@ -330,8 +292,6 @@ func (pdb *PowerDNSGenericSQLBackend) ResolveCNAMEs(cname string, qtype uint16) 
 			return nil, err
 		}
 
-		fmt.Printf("pdsql - ResolveCNAMEs(): qry recs: %#v'\n", queryRecords)
-
 		if len(queryRecords) != 0 {
 			for recIndex, queryRec := range queryRecords {
 				// Save successful records
@@ -372,21 +332,6 @@ func (pdb *PowerDNSGenericSQLBackend) SearchWildcard(qname string, qtype uint16)
 		return nil, nil
 	}
 
-	/*NEXT_ZONE:
-	if i := strings.IndexRune(name, '.'); i > 0 {
-		name = name[i+1:]
-	} else {
-		return
-	}
-	var domain pdnsmodel.Domain
-
-	if err := pdb.Limit(1).Find(&domain, "name = ?", name).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			goto NEXT_ZONE
-		}
-		return nil, err
-	}
-	*/
 	var astRecords []pdnsmodel.Record
 	query := pdb.Model(&pdnsmodel.Record{}).
 		Where("domain_id = ?", (*domain).ID).
@@ -408,8 +353,6 @@ func (pdb *PowerDNSGenericSQLBackend) SearchWildcard(qname string, qtype uint16)
 		}
 		return nil, err
 	}
-
-	fmt.Printf("pdsql - SearchWildcard(): res recs: %#v'\n", astRecords)
 
 	// filter
 	var matched []*pdnsmodel.Record
@@ -446,13 +389,8 @@ func (pdb *PowerDNSGenericSQLBackend) SearchDomain(qname string) (*pdnsmodel.Dom
 
 	for first := 0; first < len(domainParts)-1; first++ {
 		domain := strings.Join(domainParts[first:], ".")
-
-		fmt.Printf("pdsql - SearchDomain(): dom (last: %d): '%s'\n", first, domain)
-
 		domainSearch = append(domainSearch, domain)
 	}
-
-	fmt.Printf("pdsql - SearchDomain(): dom srh: %#v\n", domainSearch)
 
 	var domainMatches []pdnsmodel.Domain
 	var domainResult *pdnsmodel.Domain = nil
@@ -470,8 +408,6 @@ func (pdb *PowerDNSGenericSQLBackend) SearchDomain(qname string) (*pdnsmodel.Dom
 			}
 		}
 	}
-
-	fmt.Printf("pdsql - SearchDomain(): res dom: %#v'\n", domainResult)
 
 	return domainResult, nil
 }
@@ -524,15 +460,10 @@ func WildcardMatch(s1, s2 string) bool {
 	asterisk := false
 	match := true
 
-	fmt.Printf("pdsql - WildcardMatch(): l1: %#v'\n", l1)
-	fmt.Printf("pdsql - WildcardMatch(): l2: %#v'\n", l2)
-
 	for last := 1; !asterisk && match && last <= len2; last++ {
 		match = bool(last <= len2 && last <= len1)
 
 		if match {
-			fmt.Printf("pdsql - WildcardMatch(): l1 '%s' == l2 '%s'\n", l1[len1-last], l2[len2-last])
-
 			// Everything matches after the asterisk
 			asterisk = bool(l2[len2-last] == "*")
 
@@ -543,21 +474,7 @@ func WildcardMatch(s1, s2 string) bool {
 		}
 	}
 
-	fmt.Printf("pdsql - WildcardMatch(): mtch: %#v\n", match)
-
 	return match
-
-	if len(l1) != len(l2) {
-		return false
-	}
-
-	for i := range l1 {
-		if !equal(l1[i], l2[i]) {
-			return false
-		}
-	}
-
-	return true
 }
 
 func equal(a, b string) bool {
