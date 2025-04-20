@@ -5,6 +5,8 @@ import (
 	"net"
 	"testing"
 
+	//"database/sql"
+
 	pdsql "github.com/wenerme/coredns-pdsql"
 	"github.com/wenerme/coredns-pdsql/pdnsmodel"
 
@@ -40,21 +42,48 @@ func TestPowerDNSSQL(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	testRecords := []*pdnsmodel.Record{
-		{Name: "example.org", Type: "A", Content: "192.168.1.1", Ttl: 3600},
-		{Name: "cname1.example.org", Type: "CNAME", Content: "cname2.example.org.", Ttl: 3600},
-		{Name: "cname2.example.org", Type: "CNAME", Content: "example.org.", Ttl: 3600},
-		{Name: "nocase.example.org", Type: "CNAME", Content: "example.org.", Ttl: 3600},
-		{Name: "example.org", Type: "TXT", Content: "Example Response Text", Ttl: 3600},
-		{Name: "multi.example.org", Type: "A", Content: "192.168.1.2", Ttl: 7200},
-		{Name: "multi.example.org", Type: "A", Content: "192.168.1.3", Ttl: 7200},
-		{Name: "example.org", Type: "MX", Content: "10 mail.example.org.", Ttl: 3600},
-		{Name: "example.org", Type: "MX", Content: "20 mail2.example.org.", Ttl: 3600},
-		{Name: "_xmpp._tcp.example.org", Type: "SRV", Content: "10 10 5269 example.org.", Ttl: 3600},
+	fmt.Println("pdsql - TestPowerDNSSQL(): Migration done.")
+
+	testDomains := map[string]*pdnsmodel.Domain{
+		"example.org": &pdnsmodel.Domain{Name: "example.org", Type: "NATIVE"},
+	}
+
+	for n, d := range testDomains {
+		fmt.Printf("pdsql - TestPowerDNSSQL(): dom '%s': %#v\n", n, d)
+
+		if err := p.DB.Create(d).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	fmt.Println("pdsql - TestPowerDNSSQL(): Domains created.")
+
+	//var domainID uint = testDomains["example.org"].ID
+
+	//testDomains["example.org"].ID = 1
+
+	//domainID.Scan((*testDomains["example.org"]).ID)
+
+	testRecords := []pdnsmodel.Record{
+		{Name: "example.org", DomainId: testDomains["example.org"].ID, Type: "A", Content: "192.168.1.1", Ttl: 3600},
+		{Name: "example.org", DomainId: testDomains["example.org"].ID, Type: "AAAA", Content: "::ffff:c0a8:101", Ttl: 3600},
+		{Name: "*.example.org", DomainId: testDomains["example.org"].ID, Type: "CNAME", Content: "example.org", Ttl: 3600},
+		{Name: "cname1.example.org", DomainId: testDomains["example.org"].ID, Type: "CNAME", Content: "cname2.example.org", Ttl: 3600},
+		{Name: "cname2.example.org", DomainId: testDomains["example.org"].ID, Type: "CNAME", Content: "example.org", Ttl: 3600},
+		{Name: "nocase.example.org", DomainId: testDomains["example.org"].ID, Type: "CNAME", Content: "example.org", Ttl: 3600},
+		{Name: "example.org", DomainId: testDomains["example.org"].ID, Type: "TXT", Content: "Example Response Text", Ttl: 3600},
+		{Name: "multi.example.org", DomainId: testDomains["example.org"].ID, Type: "A", Content: "192.168.1.2", Ttl: 7200},
+		{Name: "multi.example.org", DomainId: testDomains["example.org"].ID, Type: "A", Content: "192.168.1.3", Ttl: 7200},
+		{Name: "example.org", DomainId: testDomains["example.org"].ID, Type: "MX", Content: "10 mail.example.org", Ttl: 3600},
+		{Name: "example.org", DomainId: testDomains["example.org"].ID, Type: "MX", Content: "20 mail2.example.org", Ttl: 3600},
+		{Name: "example.org", DomainId: testDomains["example.org"].ID, Type: "MX", Content: "mail3.example.org", Prio: 30, Ttl: 3600},
+		{Name: "_xmpp._tcp.example.org", DomainId: testDomains["example.org"].ID, Type: "SRV", Content: "10 10 5269 example.org.", Ttl: 3600},
 	}
 
 	for _, r := range testRecords {
-		if err := p.DB.Create(r).Error; err != nil {
+		fmt.Printf("pdsql - TestPowerDNSSQL(): rec '%s': %#v\n", r.Name, r)
+
+		if err := p.DB.Create(&r).Error; err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -72,15 +101,26 @@ func TestPowerDNSSQL(t *testing.T) {
 			rrReply:        []dns.RR{&dns.A{A: net.ParseIP("192.168.1.1")}},
 		},
 		{
+			testName:       "Type AAAA Request",
+			qname:          "example.org.",
+			qtype:          dns.TypeAAAA,
+			expectedCode:   dns.RcodeSuccess,
+			expectedType:   []uint16{dns.TypeAAAA},
+			expectedHeader: []string{"example.org."},
+			expectedReply:  []string{"::ffff:c0a8:101"},
+			expectedErr:    nil,
+			rrReply:        []dns.RR{&dns.AAAA{AAAA: net.ParseIP("::ffff:c0a8:101")}},
+		},
+		{
 			testName:       "Type CNAME Request",
 			qname:          "cname1.example.org.",
 			qtype:          dns.TypeCNAME,
 			expectedCode:   dns.RcodeSuccess,
-			expectedType:   []uint16{dns.TypeCNAME},
-			expectedHeader: []string{"cname1.example.org."},
-			expectedReply:  []string{"cname2.example.org."},
+			expectedType:   []uint16{dns.TypeCNAME, dns.TypeCNAME},
+			expectedHeader: []string{"cname1.example.org.", "cname2.example.org."},
+			expectedReply:  []string{"cname2.example.org.", "example.org."},
 			expectedErr:    nil,
-			rrReply:        []dns.RR{&dns.CNAME{Target: "cname2.example.org."}},
+			rrReply:        []dns.RR{&dns.CNAME{Target: "cname2.example.org."}, &dns.CNAME{Target: "example.org."}},
 		},
 		{
 			testName:       "CNAME resolves to A Record",
@@ -95,6 +135,18 @@ func TestPowerDNSSQL(t *testing.T) {
 				&dns.CNAME{Target: "example.org."}, &dns.A{A: net.ParseIP("192.168.1.1")}},
 		},
 		{
+			testName:       "CNAME resolves to AAAA Record",
+			qname:          "cname1.example.org.",
+			qtype:          dns.TypeAAAA,
+			expectedCode:   dns.RcodeSuccess,
+			expectedType:   []uint16{dns.TypeCNAME, dns.TypeCNAME, dns.TypeAAAA},
+			expectedHeader: []string{"cname1.example.org."},
+			expectedReply:  []string{"cname2.example.org.", "cname1.example.org.", "::ffff:c0a8:101"},
+			expectedErr:    nil,
+			rrReply: []dns.RR{&dns.CNAME{Target: "cname2.example.org."},
+				&dns.CNAME{Target: "example.org."}, &dns.A{A: net.ParseIP("::ffff:c0a8:101")}},
+		},
+		{
 			testName:       "Case Insensitive Queries",
 			qname:          "NoCase.Example.ORG.",
 			qtype:          dns.TypeA,
@@ -105,6 +157,42 @@ func TestPowerDNSSQL(t *testing.T) {
 			expectedErr:    nil,
 			rrReply: []dns.RR{
 				&dns.CNAME{Target: "example.org."}, &dns.A{A: net.ParseIP("192.168.1.1")}},
+		},
+		{
+			testName:       "Wildcard ANY Request",
+			qname:          "NOT.Exists.Example.ORG.",
+			qtype:          dns.TypeANY,
+			expectedCode:   dns.RcodeSuccess,
+			expectedType:   []uint16{dns.TypeCNAME},
+			expectedHeader: []string{"not.exists.example.org."},
+			expectedReply:  []string{"example.org."},
+			expectedErr:    nil,
+			rrReply: []dns.RR{
+				&dns.CNAME{Target: "example.org."}},
+		},
+		{
+			testName:       "Wildcard A Request",
+			qname:          "NOT.Exists.Example.ORG.",
+			qtype:          dns.TypeA,
+			expectedCode:   dns.RcodeSuccess,
+			expectedType:   []uint16{dns.TypeCNAME, dns.TypeA},
+			expectedHeader: []string{"not.exists.example.org."},
+			expectedReply:  []string{"example.org.", "192.168.1.1"},
+			expectedErr:    nil,
+			rrReply: []dns.RR{
+				&dns.CNAME{Target: "example.org."}, &dns.A{A: net.ParseIP("192.168.1.1")}},
+		},
+		{
+			testName:       "Wildcard AAAA Request",
+			qname:          "NOT.Exists.Example.ORG.",
+			qtype:          dns.TypeAAAA,
+			expectedCode:   dns.RcodeSuccess,
+			expectedType:   []uint16{dns.TypeCNAME, dns.TypeAAAA},
+			expectedHeader: []string{"not.exists.example.org."},
+			expectedReply:  []string{"example.org.", "::ffff:c0a8:101"},
+			expectedErr:    nil,
+			rrReply: []dns.RR{
+				&dns.CNAME{Target: "example.org."}, &dns.A{A: net.ParseIP("::ffff:c0a8:101")}},
 		},
 		{
 			testName:       "Type TXT Request",
@@ -134,12 +222,13 @@ func TestPowerDNSSQL(t *testing.T) {
 			qname:          "example.org",
 			qtype:          dns.TypeMX,
 			expectedCode:   dns.RcodeSuccess,
-			expectedType:   []uint16{dns.TypeMX, dns.TypeMX},
-			expectedHeader: []string{"example.org.", "example.org."},
-			expectedReply:  []string{"10 mail.example.org.", "20 mail2.example.org."},
+			expectedType:   []uint16{dns.TypeMX, dns.TypeMX, dns.TypeMX},
+			expectedHeader: []string{"example.org.", "example.org.", "example.org."},
+			expectedReply:  []string{"10 mail.example.org.", "20 mail2.example.org.", "30 mail3.example.org."},
 			expectedErr:    nil,
 			rrReply: []dns.RR{&dns.MX{Mx: "mail.example.org.", Preference: 10},
-				&dns.MX{Mx: "mail2.example.org.", Preference: 20}},
+				&dns.MX{Mx: "mail2.example.org.", Preference: 20},
+				&dns.MX{Mx: "mail3.example.org.", Preference: 30}},
 		},
 		{
 			testName:       "Type SRV Request",
@@ -172,6 +261,12 @@ func TestPowerDNSSQL(t *testing.T) {
 
 		if observed.Msg.Answer == nil {
 			t.Errorf("Test '%s': Expected answer section, but got nil", tc.testName)
+		}
+
+		fmt.Printf("test '%s': asw: %#v'\n", tc.testName, observed.Msg.Answer)
+
+		for i, rr := range observed.Msg.Answer {
+			fmt.Printf("test '%s': asw[%d]: %#v'\n", tc.testName, i, rr)
 		}
 
 		if len(tc.expectedReply) != len(observed.Msg.Answer) {
@@ -264,6 +359,7 @@ func TestWildcardMatch(t *testing.T) {
 		{"a.example.org.", "a.example.org.", true},
 		{"*.example.org.", "a.example.org.", true},
 		{"*.example.org.", "abcd.example.org.", true},
+		{"*.example.org.", "not.exist.example.org.", true},
 	}
 
 	for i, tc := range tests {

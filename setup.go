@@ -2,8 +2,8 @@ package pdsql
 
 import (
 	"github.com/glebarez/sqlite"
-	"github.com/wenerme/coredns-pdsql/pdnsmodel"
 	"log"
+	"pdsql/pdnsmodel"
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
@@ -100,5 +100,5 @@ func setup(c *caddy.Controller) error {
 }
 
 func (pdb PowerDNSGenericSQLBackend) AutoMigrate() error {
-	return pdb.DB.AutoMigrate(&pdnsmodel.Record{}, &pdnsmodel.Domain{})
+	return pdb.DB.AutoMigrate(&pdnsmodel.Domain{}, &pdnsmodel.Record{})
 }
