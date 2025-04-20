@@ -1,4 +1,3 @@
-[![Automatted Testing](https://github.com/wenerme/coredns-pdsql/actions/workflows/testing.yml/badge.svg)](https://github.com/wenerme/coredns-pdsql/actions/workflows/testing.yml)
 ---
 title: "pdsql"
 description: "*pdsql* use powerdns generic sql as backend."
@@ -9,6 +8,8 @@ date: "2017-12-09T10:26:00+08:00"
 repo: "https://github.com/wenerme/coredns-pdsql"
 home: "https://github.com/wenerme/coredns-pdsql/blob/master/README.md"
 ---
+
+[![Automatted Testing](https://github.com/wenerme/coredns-pdsql/actions/workflows/testing.yml/badge.svg)](https://github.com/wenerme/coredns-pdsql/actions/workflows/testing.yml)
 
 # pdsql
 
