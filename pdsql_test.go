@@ -40,27 +40,15 @@ func TestPowerDNSSQL(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fmt.Println("pdsql - TestPowerDNSSQL(): Migration done.")
-
 	testDomains := map[string]*pdnsmodel.Domain{
 		"example.org": &pdnsmodel.Domain{Name: "example.org", Type: "NATIVE"},
 	}
 
 	for n, d := range testDomains {
-		fmt.Printf("pdsql - TestPowerDNSSQL(): dom '%s': %#v\n", n, d)
-
 		if err := p.DB.Create(d).Error; err != nil {
 			t.Fatal(err)
 		}
 	}
-
-	fmt.Println("pdsql - TestPowerDNSSQL(): Domains created.")
-
-	//var domainID uint = testDomains["example.org"].ID
-
-	//testDomains["example.org"].ID = 1
-
-	//domainID.Scan((*testDomains["example.org"]).ID)
 
 	testRecords := []pdnsmodel.Record{
 		{Name: "example.org", DomainId: testDomains["example.org"].ID, Type: "A", Content: "192.168.1.1", Ttl: 3600},
@@ -79,8 +67,6 @@ func TestPowerDNSSQL(t *testing.T) {
 	}
 
 	for _, r := range testRecords {
-		fmt.Printf("pdsql - TestPowerDNSSQL(): rec '%s': %#v\n", r.Name, r)
-
 		if err := p.DB.Create(&r).Error; err != nil {
 			t.Fatal(err)
 		}
@@ -261,12 +247,6 @@ func TestPowerDNSSQL(t *testing.T) {
 			t.Errorf("Test '%s': Expected answer section, but got nil", tc.testName)
 		}
 
-		fmt.Printf("test '%s': asw: %#v'\n", tc.testName, observed.Msg.Answer)
-
-		for i, rr := range observed.Msg.Answer {
-			fmt.Printf("test '%s': asw[%d]: %#v'\n", tc.testName, i, rr)
-		}
-
 		if len(tc.expectedReply) != len(observed.Msg.Answer) {
 			t.Errorf("Test '%s': Expected status len %d, but got %d", tc.testName, len(tc.expectedReply), len(observed.Msg.Answer))
 		}
@@ -282,7 +262,6 @@ func TestPowerDNSSQL(t *testing.T) {
 			if actual != expected {
 				t.Errorf("Test '%s' - Answer [%d]: Expected answer %s, but got %s", tc.testName, i, expected, actual)
 			}
-
 		}
 
 		for i, testExpected := range tc.rrReply {
