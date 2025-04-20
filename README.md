@@ -11,7 +11,8 @@ home: "https://github.com/wenerme/coredns-pdsql/blob/master/README.md"
 
 # pdsql
 
-*pdsql* use PowerDNS [generic sql](https://github.com/PowerDNS/pdns/tree/master/pdns/backends/gsql) as backend.
+`pdsql` - Connect _CoreDNS_ to _PowerDNS_ [`generic sql`](https://github.com/PowerDNS/pdns/tree/master/pdns/backends/gsql) 
+zone backends.
 
 Use [gorm.io/gorm](https://gorm.io) to handle database, support many database as gorm dose.
 
