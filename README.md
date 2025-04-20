@@ -1,6 +1,6 @@
 [![Automatted Testing](https://github.com/wenerme/coredns-pdsql/actions/workflows/testing.yml/badge.svg)](https://github.com/wenerme/coredns-pdsql/actions/workflows/testing.yml)
 ---
-title: "pdsql
+title: "pdsql"
 description: "*pdsql* use powerdns generic sql as backend."
 weight: 10
 tags: [ "plugin" , "pdsql" ]
