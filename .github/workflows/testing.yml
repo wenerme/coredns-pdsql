@@ -1,4 +1,4 @@
-name: Automatted Testing
+name: Automated Testing
 
 on:
   pull_request:
@@ -8,7 +8,7 @@ on:
 
 jobs:
 
-  automatted-testing:
+  automated-testing:
     runs-on: ubuntu-24.04
 
     steps:

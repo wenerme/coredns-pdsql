@@ -9,7 +9,7 @@ repo: "https://github.com/wenerme/coredns-pdsql"
 home: "https://github.com/wenerme/coredns-pdsql/blob/master/README.md"
 ---
 
-[![Automatted Testing](https://github.com/wenerme/coredns-pdsql/actions/workflows/testing.yml/badge.svg)](https://github.com/wenerme/coredns-pdsql/actions/workflows/testing.yml)
+[![Automated Testing](https://github.com/wenerme/coredns-pdsql/actions/workflows/testing.yml/badge.svg)](https://github.com/wenerme/coredns-pdsql/actions/workflows/testing.yml)
 
 # pdsql
 
