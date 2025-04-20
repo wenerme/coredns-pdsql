@@ -15,6 +15,12 @@ home: "https://github.com/wenerme/coredns-pdsql/blob/master/README.md"
 
 Use [gorm.io/gorm](https://gorm.io) to handle database, support many database as gorm dose.
 
+## Compatibility
+
+The plugin aims to be compatible with _PowerDNS_ backend databases.
+
+It also aims to provide the same feature scope as the `file` plugin or other _CoreDNS_ zone backends.
+
 ## Syntax
 
 ~~~ txt
@@ -47,7 +53,7 @@ test.:1053 {
     }   
 }
 
-coredns-pdsql.local {
+coredns-pdsql.local:1053 {
 	pdsql postgres "host=db dbname=coredns user=coredns password=coredns.secret sslmode=disable" {
 		debug db
         auto-migrate
