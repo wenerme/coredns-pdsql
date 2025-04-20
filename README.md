@@ -63,35 +63,34 @@ test.:1053 {
 }
 
 coredns-pdsql.local.:1053 {
-	pdsql postgres "host=db dbname=coredns user=coredns password=coredns.secret sslmode=disable" {
+   pdsql postgres "host=db dbname=coredns user=coredns password=coredns.secret sslmode=disable" {
        debug db
        auto-migrate
-	}
+   }
 
-	whoami
-	log
-	errors
+   whoami
+   log
+   errors
 }
  
 sub.coredns-pdsql.local.:1053 {
-	pdsql postgres "host=db dbname=coredns user=coredns password=coredns.secret sslmode=disable" {
+   pdsql postgres "host=db dbname=coredns user=coredns password=coredns.secret sslmode=disable" {
        debug db
        auto-migrate
-	}
+   }
 
-	whoami
-	log
-	errors
+   whoami
+   log
+   errors
 }
 
 file.sub.coredns-pdsql.local.:1053 {
-	file /etc/coredns/zones/file-sub-coredns-pdsql-local.db
+   file /etc/coredns/zones/file-sub-coredns-pdsql-local.db
 
-	whoami
-	log
-	errors
+   whoami
+   log
+   errors
 }
-
 ~~~
 
 Prepare data for test.
