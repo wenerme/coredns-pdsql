@@ -44,7 +44,7 @@ func TestPowerDNSSQL(t *testing.T) {
 		"example.org": &pdnsmodel.Domain{Name: "example.org", Type: "NATIVE"},
 	}
 
-	for n, d := range testDomains {
+	for _, d := range testDomains {
 		if err := p.DB.Create(d).Error; err != nil {
 			t.Fatal(err)
 		}
