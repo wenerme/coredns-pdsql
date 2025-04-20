@@ -22,6 +22,12 @@ The plugin aims to be compatible with _PowerDNS_ backend databases.
 
 It also aims to provide the same feature scope as the `file` plugin or other _CoreDNS_ zone backends.
 
+It also supports multiple **sub zones** on **different backends** like:
+
+- `coredns-pdsql.local`
+- `sub.coredns-pdsql.local`
+- `file.sub.coredns-pdsql.local`
+
 ## Syntax
 
 ~~~ txt
@@ -54,11 +60,30 @@ test.:1053 {
     }   
 }
 
-coredns-pdsql.local:1053 {
+coredns-pdsql.local.:1053 {
 	pdsql postgres "host=db dbname=coredns user=coredns password=coredns.secret sslmode=disable" {
 		debug db
         auto-migrate
 	}
+
+	whoami
+	log
+	errors
+}
+ 
+sub.coredns-pdsql.local.:1053 {
+	pdsql postgres "host=db dbname=coredns user=coredns password=coredns.secret sslmode=disable" {
+		debug db
+        auto-migrate
+	}
+
+	whoami
+	log
+	errors
+}
+
+file.sub.coredns-pdsql.local.:1053 {
+	file /etc/coredns/zones/file-sub-coredns-pdsql-local.db
 
 	whoami
 	log

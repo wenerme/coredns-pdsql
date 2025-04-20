@@ -5,8 +5,6 @@ import (
 	"net"
 	"testing"
 
-	//"database/sql"
-
 	pdsql "github.com/wenerme/coredns-pdsql"
 	"github.com/wenerme/coredns-pdsql/pdnsmodel"
 
