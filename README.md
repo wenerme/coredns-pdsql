@@ -64,8 +64,8 @@ test.:1053 {
 
 coredns-pdsql.local.:1053 {
 	pdsql postgres "host=db dbname=coredns user=coredns password=coredns.secret sslmode=disable" {
-		debug db
-        auto-migrate
+       debug db
+       auto-migrate
 	}
 
 	whoami
@@ -75,8 +75,8 @@ coredns-pdsql.local.:1053 {
  
 sub.coredns-pdsql.local.:1053 {
 	pdsql postgres "host=db dbname=coredns user=coredns password=coredns.secret sslmode=disable" {
-		debug db
-        auto-migrate
+       debug db
+       auto-migrate
 	}
 
 	whoami
