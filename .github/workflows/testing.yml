@@ -1,4 +1,4 @@
-name: Automatted Testing
+name: Automated Testing
 
 on:
   pull_request:
@@ -8,8 +8,8 @@ on:
 
 jobs:
 
-  automatted-testing:
-    runs-on: ubuntu-20.04
+  automated-testing:
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v4

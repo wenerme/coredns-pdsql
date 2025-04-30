@@ -9,11 +9,26 @@ repo: "https://github.com/wenerme/coredns-pdsql"
 home: "https://github.com/wenerme/coredns-pdsql/blob/master/README.md"
 ---
 
+[![Automated Testing](https://github.com/wenerme/coredns-pdsql/actions/workflows/testing.yml/badge.svg)](https://github.com/wenerme/coredns-pdsql/actions/workflows/testing.yml)
+
 # pdsql
 
-*pdsql* use PowerDNS [generic sql](https://github.com/PowerDNS/pdns/tree/master/pdns/backends/gsql) as backend.
+`pdsql` - Connect _CoreDNS_ to _PowerDNS_ [`generic sql`](https://github.com/PowerDNS/pdns/tree/master/pdns/backends/gsql) 
+zone backends.
 
 Use [gorm.io/gorm](https://gorm.io) to handle database, support many database as gorm dose.
+
+## Compatibility
+
+The plugin aims to be compatible with _PowerDNS_ backend databases.
+
+It also aims to provide the same feature scope as the `file` plugin or other _CoreDNS_ zone backends.
+
+It also supports multiple **sub zones** on **different backends** like:
+
+- `coredns-pdsql.local`
+- `sub.coredns-pdsql.local`
+- `file.sub.coredns-pdsql.local`
 
 ## Syntax
 
@@ -44,7 +59,37 @@ test.:1053 {
     pdsql sqlite3 ./test.db {
         debug db
         auto-migrate
-    }
+    }   
+}
+
+coredns-pdsql.local.:1053 {
+   pdsql postgres "host=db dbname=coredns user=coredns password=coredns.secret sslmode=disable" {
+       debug db
+       auto-migrate
+   }
+
+   whoami
+   log
+   errors
+}
+ 
+sub.coredns-pdsql.local.:1053 {
+   pdsql postgres "host=db dbname=coredns user=coredns password=coredns.secret sslmode=disable" {
+       debug db
+       auto-migrate
+   }
+
+   whoami
+   log
+   errors
+}
+
+file.sub.coredns-pdsql.local.:1053 {
+   file /etc/coredns/zones/file-sub-coredns-pdsql-local.db
+
+   whoami
+   log
+   errors
 }
 ~~~
 
@@ -94,8 +139,4 @@ When queried for "first.example.test. A", CoreDNS will respond with:
 ;; ANSWER SECTION:
 first.example.test.	3600	IN	A	192.168.1.1
 ~~~
-
-## TODO
-
-* [x] support wildcard record
 
